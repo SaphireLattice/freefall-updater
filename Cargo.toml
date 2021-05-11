@@ -1,0 +1,21 @@
+[package]
+name = "freefall-updater"
+version = "0.1.0"
+authors = ["Saphire <lattice@saphi.re>"]
+edition = "2018"
+
+[profile.release]
+codegen-units = 1
+opt-level = "z"
+lto = true
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+reqwest = { version = "0.11", features = [ ] }
+tokio = { version = "1", features = ["full"] }
+chrono = "0"
+regex = "1.5"
+lazy_static = "1.4.0"
+imagesize = "0.8"
+bytes = "1"
