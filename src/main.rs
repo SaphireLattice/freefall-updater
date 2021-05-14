@@ -4,6 +4,8 @@ extern crate lazy_static;
 mod data;
 mod freefall;
 
+use chrono::TimeZone;
+use chrono::Utc;
 use anyhow::{Context, Result, anyhow};
 use serde_json::ser::Formatter;
 use serde::de::DeserializeOwned;
@@ -37,10 +39,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut local_data: Vec<data::ReaderEntry> = read_from_file(local_data_file)
         .with_context(|| format!("Failed to read local reader data from {}", local_data_file))?;
 
-    local_data.last();
+    let local_last = local_data.last().unwrap();
 
-    let last_known = 3498; local_data.last().unwrap().i;
-    let last = 3502; data.last().unwrap().i;
+    let last_known = local_last.i;
+    let last = data.last().unwrap().i;
+    println!("Last update check {:?} UTC", local_last.checked.unwrap_or(Utc.timestamp(0, 0)));
+
     if last_known == last {
         println!("Local copy up to date!");
         return Ok(());
@@ -57,7 +61,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         v
     };
 
-    for i in last_known+1..last {
+    for i in (last_known + 1)..=last {
         let url = if i == last {
             "http://freefall.purrsia.com/default.htm".to_string()
         } else {
@@ -106,6 +110,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     save_to_file(&date_save_path, &dates, serde_json::ser::CompactFormatter)?;
 
     local_data.last_mut().unwrap().i = last;
+    local_data.last_mut().unwrap().checked = Some(Utc::now());
     save_to_file(local_data_file, local_data, data::DataFormatter::new())?;
 
     Ok(())

@@ -15,7 +15,7 @@ pub struct Page {
 
 impl fmt::Display for Page {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "#{} {} - {} ({:?}))", self.num, self.date, self.img_url, self.extra_url)
+        write!(f, "#{} {} - {} ({:?})", self.num, self.date, self.img_url, self.extra_url)
     }
 }
 

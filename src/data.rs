@@ -1,6 +1,7 @@
 use anyhow::{Result, anyhow};
 use serde_json::ser::Formatter;
-use chrono::NaiveDate;
+use chrono::{DateTime, NaiveDate, Utc};
+use chrono::serde::ts_seconds_option;
 use std::fmt;
 use std::io;
 use serde::{Serialize, Deserialize};
@@ -14,7 +15,7 @@ pub struct FreefallEntry {
     pub ext: Option<String>
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ReaderEntry {
     pub i: i32,
@@ -34,6 +35,10 @@ pub struct ReaderEntry {
     pub extra_height: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub extra_original: Option<String>,
+    #[serde(default)]
+    #[serde(with = "ts_seconds_option")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub checked: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug)]
