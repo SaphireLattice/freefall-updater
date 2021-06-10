@@ -47,6 +47,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if last_known == last {
         println!("Local copy up to date!");
+        local_data.last_mut().unwrap().checked = Some(Utc::now());
+        save_to_file(local_data_file, local_data, data::DataFormatter::new())?;
         return Ok(());
     }
 
@@ -56,9 +58,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         read_from_file(format!("freefall/dates_{}.json", last_known / 100))
             .with_context(|| format!("Failed to read freefall/dates_{}.json", last_known / 100))?
     } else {
-        let mut v = Vec::new();
-        v.push(None);
-        v
+        Vec::new()
     };
 
     for i in (last_known + 1)..=last {
@@ -86,9 +86,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let path = save_page_img(&page, bytes, "static/freefall/".to_string()).await?;
         println!("Saved image: {:?}", path.to_str().unwrap());
 
-        if i % 100 == 0 {
+        dates.push(Some((&page.date).to_string()));
+
+        if i % 100 == 99 {
             assert_eq!(dates.len(), 100);
-            let bin = (i - 1) / 100;
+            let bin = i / 100;
 
             save_to_file(format!("static/freefall/dates_{}.json", bin), &dates, serde_json::ser::CompactFormatter)?;
 
@@ -98,16 +100,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             dates = Vec::new();
         }
-        dates.push(Some((&page.date).to_string()));
+
         println!("");
     }
 
-    let date_save_path = if last % 100 == 99 {
-        format!("static/freefall/dates_{}.json", last / 100)
-    } else {
-        format!("freefall/dates_{}.json", last / 100)
+    if last % 100 != 99 {
+        save_to_file(format!("freefall/dates_{}.json", last / 100), &dates, serde_json::ser::CompactFormatter)?;
     };
-    save_to_file(&date_save_path, &dates, serde_json::ser::CompactFormatter)?;
 
     local_data.last_mut().unwrap().i = last;
     local_data.last_mut().unwrap().checked = Some(Utc::now());
