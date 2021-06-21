@@ -19,8 +19,6 @@ use std::fs::File;
 use std::path::Path;
 use std::fs;
 
-use serde_json;
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let local_data_file = "freefall/data.json";
@@ -43,7 +41,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let last_known = local_last.i;
     let last = data.last().unwrap().i;
-    println!("Last update check {:?} UTC", local_last.checked.unwrap_or(Utc.timestamp(0, 0)));
+    println!("Last update check {:?} UTC", local_last.checked.unwrap_or_else(|| Utc.timestamp(0, 0)));
 
     if last_known == last {
         println!("Local copy up to date!");
@@ -101,7 +99,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             dates = Vec::new();
         }
 
-        println!("");
+        println!();
     }
 
     if last % 100 != 99 {

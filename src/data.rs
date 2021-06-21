@@ -79,12 +79,6 @@ impl From<NaiveDate> for ReaderDate {
     }
 }
 
-impl Into<NaiveDate> for ReaderDate {
-    fn into(self) -> NaiveDate {
-        self.0
-    }
-}
-
 impl fmt::Display for ReaderDate {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.0)

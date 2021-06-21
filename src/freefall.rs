@@ -21,6 +21,7 @@ impl fmt::Display for Page {
 
 impl Page {
     pub async fn new(url: String) -> Result<Self, anyhow::Error> {
+        // TODO: rewrite with `once_cell`
         lazy_static! {
             static ref RE_TITLE: Regex = Regex::new(r"(?ix)
                 <title>\s*
@@ -61,12 +62,10 @@ impl Page {
             let url = captures[1].to_string();
             println!("Image {}", url);
 
-            if let None = img_url {
+            if img_url.is_none() {
                 img_url = Some(url);
-            } else if let None = extra_img_url {
-                if !url.contains("") {
-                    extra_img_url = Some(url);
-                };
+            } else if extra_img_url.is_none() && !url.contains("/linkpages/") {
+                extra_img_url = Some(url);
             };
         }
 
