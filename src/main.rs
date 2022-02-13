@@ -5,7 +5,7 @@ use anyhow::{anyhow, Context, Result};
 use bytes::Bytes;
 use chrono::TimeZone;
 use chrono::Utc;
-use once_cell::unsync::Lazy;
+use once_cell::sync::Lazy;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::ser::Formatter;
@@ -22,8 +22,8 @@ type LazyPath = Lazy<PathBuf, fn() -> PathBuf>;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    const DYNAMIC_DIR: LazyPath = Lazy::new(|| "freefall".into());
-    const LOCAL_DATA_FILE: LazyPath = Lazy::new(|| DYNAMIC_DIR.join("data.json"));
+    static DYNAMIC_DIR: LazyPath = Lazy::new(|| "freefall".into());
+    static LOCAL_DATA_FILE: LazyPath = Lazy::new(|| DYNAMIC_DIR.join("data.json"));
 
     let body = reqwest::get("http://freefall.purrsia.com/fabsdata.js")
         .await
@@ -34,7 +34,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let data: Vec<data::FreefallEntry> = serde_json::from_str(
         body.strip_prefix("FreefallData(")
             .ok_or("Prefix match failed")?
-            .strip_suffix(")")
+            .strip_suffix(')')
             .ok_or("Suffix match failed")?,
     )
     .context("Failed to normalize JSONP to JSON")?;
@@ -180,7 +180,7 @@ fn save_to_file<P: AsRef<Path>, T: Serialize, F: Formatter>(
 pub async fn save_page_img(
     page: &freefall::Page,
     bytes: Bytes,
-    target_dir: &PathBuf,
+    target_dir: &Path,
 ) -> Result<PathBuf, anyhow::Error> {
     if !page.img_url.ends_with("png") {
         return Err(anyhow!(
