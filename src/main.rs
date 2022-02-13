@@ -5,7 +5,7 @@ use anyhow::{anyhow, Context, Result};
 use bytes::Bytes;
 use chrono::TimeZone;
 use chrono::Utc;
-use once_cell::unsync::Lazy;
+use once_cell::sync::Lazy;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::ser::Formatter;
@@ -22,8 +22,8 @@ type LazyPath = Lazy<PathBuf, fn() -> PathBuf>;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    const DYNAMIC_DIR: LazyPath = Lazy::new(|| "freefall".into());
-    const LOCAL_DATA_FILE: LazyPath = Lazy::new(|| DYNAMIC_DIR.join("data.json"));
+    static DYNAMIC_DIR: LazyPath = Lazy::new(|| "freefall".into());
+    static LOCAL_DATA_FILE: LazyPath = Lazy::new(|| DYNAMIC_DIR.join("data.json"));
 
     let body = reqwest::get("http://freefall.purrsia.com/fabsdata.js")
         .await
