@@ -34,7 +34,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let data: Vec<data::FreefallEntry> = serde_json::from_str(
         body.strip_prefix("FreefallData(")
             .ok_or("Prefix match failed")?
-            .strip_suffix(")")
+            .strip_suffix(')')
             .ok_or("Suffix match failed")?,
     )
     .context("Failed to normalize JSONP to JSON")?;
