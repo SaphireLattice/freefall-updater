@@ -137,7 +137,6 @@ dependencies = [
  "bytes",
  "chrono",
  "imagesize",
- "lazy_static",
  "native-tls",
  "once_cell",
  "regex",
