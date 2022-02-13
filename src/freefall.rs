@@ -4,7 +4,14 @@ use bytes::Bytes;
 use std::fmt;
 use url::Url;
 
-use regex::Regex;
+// Convenience macro, based on once_cell's documentation:
+//   https://docs.rs/once_cell/latest/once_cell/index.html#lazily-compiled-regex
+macro_rules! regex {
+    ($re:expr $(,)?) => {{
+        static RE: once_cell::sync::OnceCell<regex::Regex> = once_cell::sync::OnceCell::new();
+        RE.get_or_init(|| regex::Regex::new($re).unwrap())
+    }};
+}
 
 pub struct Page {
     pub num: i32,
@@ -25,28 +32,17 @@ impl fmt::Display for Page {
 
 impl Page {
     pub async fn new(url: String) -> Result<Self, anyhow::Error> {
-        // TODO: rewrite with `once_cell`
-        lazy_static! {
-            static ref RE_TITLE: Regex = Regex::new(
-                r"(?ix)
+        let body = reqwest::get(url).await?.text().await?;
+
+        const RE_TITLE: &'static str = r"(?ix)
                 <title>\s*
                 Freefall\s+
                 ([0-9]+)\s+
                 ([a-z]+)\s+
                 ([0-9]+),\s+
-                ([0-9]+)\s*</title>
-            "
-            )
-            .unwrap();
-        }
+                ([0-9]+)\s*</title>";
 
-        lazy_static! {
-            static ref RE_IMG: Regex = Regex::new(r#"(?ix)<img\s+src="([^.]+\.[^".]+)""#).unwrap();
-        }
-
-        let body = reqwest::get(url).await?.text().await?;
-
-        let captures = match RE_TITLE.captures(&body) {
+        let captures = match regex!(RE_TITLE).captures(&body) {
             Some(cap) => cap,
             None => {
                 return Err(anyhow!("Failed to find date via regex: {}", body));
@@ -62,7 +58,7 @@ impl Page {
         let mut img_url: Option<String> = None;
         let mut extra_img_url: Option<String> = None;
 
-        for captures in RE_IMG.captures_iter(&body) {
+        for captures in regex!(r#"(?ix)<img\s+src="([^.]+\.[^".]+)""#).captures_iter(&body) {
             let url = captures[1].to_string();
             println!("Image {}", url);
 
