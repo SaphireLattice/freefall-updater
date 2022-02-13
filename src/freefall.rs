@@ -42,12 +42,9 @@ impl Page {
                 ([0-9]+),\s+
                 ([0-9]+)\s*</title>";
 
-        let captures = match regex!(RE_TITLE).captures(&body) {
-            Some(cap) => cap,
-            None => {
-                return Err(anyhow!("Failed to find date via regex: {}", body));
-            }
-        };
+        let captures = regex!(RE_TITLE)
+            .captures(&body)
+            .ok_or_else(|| anyhow!("Failed to find date via regex: {}", body))?;
 
         let date = ReaderDate::from_title(
             captures.get(4).unwrap().as_str().to_string(),
