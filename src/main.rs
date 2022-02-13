@@ -68,6 +68,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Vec::new()
     };
 
+    let static_dir: PathBuf = "static/freefall".into();
+
     for i in (last_known + 1)..=last {
         let url = if i == last {
             "http://freefall.purrsia.com/default.htm".to_string()
@@ -96,7 +98,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
         */
 
-        let path = save_page_img(&page, bytes, "static/freefall/".to_string()).await?;
+        let path = save_page_img(&page, bytes, &static_dir).await?;
         println!("Saved image: {:?}", path.to_str().unwrap());
 
         dates.push(Some((&page.date).to_string()));
@@ -106,7 +108,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let bin = i / 100;
 
             save_to_file(
-                format!("static/freefall/dates_{}.json", bin),
+                static_dir.join(format!("dates_{}.json", bin)),
                 &dates,
                 serde_json::ser::CompactFormatter,
             )?;
@@ -175,9 +177,8 @@ fn save_to_file<P: AsRef<Path>, T: Serialize, F: Formatter>(
 pub async fn save_page_img(
     page: &freefall::Page,
     bytes: Bytes,
-    target_dir: String,
+    target_dir: &PathBuf,
 ) -> Result<PathBuf, anyhow::Error> {
-    let mut path = PathBuf::from(target_dir);
     if !page.img_url.ends_with("png") {
         return Err(anyhow!(
             "Unsupported image type for image \"{}\"",
@@ -185,7 +186,7 @@ pub async fn save_page_img(
         ));
     };
     let filename = format!("{}.{}", page.num, "png");
-    path.push(filename);
+    let path = target_dir.join(filename);
 
     let mut file = File::create(&path)?;
     file.write_all(&bytes.to_vec())?;
