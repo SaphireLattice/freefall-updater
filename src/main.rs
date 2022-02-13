@@ -180,7 +180,7 @@ fn save_to_file<P: AsRef<Path>, T: Serialize, F: Formatter>(
 pub async fn save_page_img(
     page: &freefall::Page,
     bytes: Bytes,
-    target_dir: &PathBuf,
+    target_dir: &Path,
 ) -> Result<PathBuf, anyhow::Error> {
     if !page.img_url.ends_with("png") {
         return Err(anyhow!(
