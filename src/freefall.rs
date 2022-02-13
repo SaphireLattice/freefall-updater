@@ -34,7 +34,7 @@ impl Page {
     pub async fn new(url: String) -> Result<Self, anyhow::Error> {
         let body = reqwest::get(url).await?.text().await?;
 
-        const RE_TITLE: &'static str = r"(?ix)
+        const RE_TITLE: &str = r"(?ix)
                 <title>\s*
                 Freefall\s+
                 ([0-9]+)\s+
