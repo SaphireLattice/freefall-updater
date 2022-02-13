@@ -37,8 +37,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     )
     .context("Failed to normalize JSONP to JSON")?;
 
-    let mut local_data: Vec<data::ReaderEntry> = read_from_file(local_data_file)
-        .with_context(|| format!("Failed to read local reader data from {}", local_data_file))?;
+    let mut local_data: Vec<data::ReaderEntry> =
+        read_from_file(&*local_data_file).with_context(|| "Failed to read local data")?;
 
     let local_last = local_data.last().unwrap();
 
@@ -62,8 +62,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let mut dates: Vec<Option<String>> = if last_known % 100 != 99 {
-        read_from_file(format!("freefall/dates_{}.json", last_known / 100))
-            .with_context(|| format!("Failed to read freefall/dates_{}.json", last_known / 100))?
+        read_from_file(format!("freefall/dates_{}.json", last_known / 100))?
     } else {
         Vec::new()
     };
@@ -139,28 +138,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn read_from_file<P: AsRef<Path>, T: DeserializeOwned>(path: P) -> Result<Vec<T>, anyhow::Error> {
-    let file = File::open(path)?;
+    let path: &Path = path.as_ref();
+    let file = File::open(path).with_context(|| format!("Failed to open {:?}", path))?;
     let reader = BufReader::new(file);
 
-    let data = serde_json::from_reader(reader)?;
-    Ok(data)
+    serde_json::from_reader(reader).with_context(|| format!("Failed to parse {:?}", path))
 }
 
 fn save_to_file<P: AsRef<Path>, T: Serialize, F: Formatter>(
     path: P,
     data: T,
     formatter: F,
-) -> Result<bool, anyhow::Error> {
-    //*
-    let file = File::create(&path)?;
+) -> Result<(), anyhow::Error> {
+    let path: &Path = path.as_ref();
+    let file = File::create(&path).with_context(|| format!("Failed to create {:?}", path))?;
     let writer = BufWriter::new(file);
 
     let mut ser = serde_json::Serializer::with_formatter(writer, formatter);
-    data.serialize(&mut ser).unwrap();
+    data.serialize(&mut ser)
+        .with_context(|| format!("Failed to serialise into {:?}", path))?;
 
-    println!("Saved data: {:?}", path.as_ref());
+    println!("Saved data: {:?}", path);
 
-    Ok(true)
+    Ok(())
     // *
     /* /
 
