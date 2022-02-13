@@ -1,18 +1,18 @@
-use anyhow::{Result, anyhow};
-use serde_json::ser::Formatter;
-use chrono::{DateTime, NaiveDate, Utc};
+use anyhow::{anyhow, Result};
 use chrono::serde::ts_seconds_option;
+use chrono::{DateTime, NaiveDate, Utc};
+use serde::de::{self, Visitor};
+use serde::{Deserialize, Serialize};
+use serde_json::ser::Formatter;
 use std::fmt;
 use std::io;
-use serde::{Serialize, Deserialize};
-use serde::de::{self, Visitor};
 
 #[derive(Deserialize, Debug)]
 pub struct FreefallEntry {
     pub i: i32,
     pub h: Option<i32>,
     pub prefix: Option<String>,
-    pub ext: Option<String>
+    pub ext: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
@@ -60,16 +60,14 @@ impl ReaderDate {
             "Oct" => 10,
             "Nov" => 11,
             "Dec" => 12,
-            _ => return Err(anyhow!("invalid month \"{}\"", month))
+            _ => return Err(anyhow!("invalid month \"{}\"", month)),
         };
 
-        Ok(
-            ReaderDate(
-                NaiveDate::from_ymd(
-                    year.parse().unwrap(), month, day.parse().unwrap()
-                )
-            )
-        )
+        Ok(ReaderDate(NaiveDate::from_ymd(
+            year.parse().unwrap(),
+            month,
+            day.parse().unwrap(),
+        )))
     }
 }
 
@@ -107,9 +105,7 @@ impl<'de> Visitor<'de> for DateVisitor {
     {
         match NaiveDate::parse_from_str(s, "%Y-%m-%d") {
             Ok(date) => Ok(ReaderDate(date)),
-            Err(e) => Err(
-                E::custom(e)
-            )
+            Err(e) => Err(E::custom(e)),
         }
     }
 }
