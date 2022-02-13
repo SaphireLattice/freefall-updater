@@ -1,8 +1,8 @@
-use anyhow::{Result, anyhow};
-use url::Url;
-use bytes::Bytes;
 use crate::data::ReaderDate;
+use anyhow::{anyhow, Result};
+use bytes::Bytes;
 use std::fmt;
+use url::Url;
 
 use regex::Regex;
 
@@ -10,12 +10,16 @@ pub struct Page {
     pub num: i32,
     pub date: ReaderDate,
     pub img_url: String,
-    pub extra_url: Option<String>
+    pub extra_url: Option<String>,
 }
 
 impl fmt::Display for Page {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "#{} {} - {} ({:?})", self.num, self.date, self.img_url, self.extra_url)
+        write!(
+            f,
+            "#{} {} - {} ({:?})",
+            self.num, self.date, self.img_url, self.extra_url
+        )
     }
 }
 
@@ -23,24 +27,24 @@ impl Page {
     pub async fn new(url: String) -> Result<Self, anyhow::Error> {
         // TODO: rewrite with `once_cell`
         lazy_static! {
-            static ref RE_TITLE: Regex = Regex::new(r"(?ix)
+            static ref RE_TITLE: Regex = Regex::new(
+                r"(?ix)
                 <title>\s*
                 Freefall\s+
                 ([0-9]+)\s+
                 ([a-z]+)\s+
                 ([0-9]+),\s+
                 ([0-9]+)\s*</title>
-            ").unwrap();
+            "
+            )
+            .unwrap();
         }
 
         lazy_static! {
             static ref RE_IMG: Regex = Regex::new(r#"(?ix)<img\s+src="([^.]+\.[^".]+)""#).unwrap();
         }
 
-        let body = reqwest::get(url)
-            .await?
-            .text()
-            .await?;
+        let body = reqwest::get(url).await?.text().await?;
 
         let captures = match RE_TITLE.captures(&body) {
             Some(cap) => cap,
@@ -52,11 +56,11 @@ impl Page {
         let date = ReaderDate::from_title(
             captures.get(4).unwrap().as_str().to_string(),
             captures.get(2).unwrap().as_str().to_string(),
-            captures.get(3).unwrap().as_str().to_string()
+            captures.get(3).unwrap().as_str().to_string(),
         )?;
 
-        let mut img_url: Option::<String> = None;
-        let mut extra_img_url: Option::<String> = None;
+        let mut img_url: Option<String> = None;
+        let mut extra_img_url: Option<String> = None;
 
         for captures in RE_IMG.captures_iter(&body) {
             let url = captures[1].to_string();
@@ -73,7 +77,7 @@ impl Page {
             num: captures.get(1).unwrap().as_str().parse().unwrap(),
             date,
             img_url: img_url.unwrap(),
-            extra_url: extra_img_url
+            extra_url: extra_img_url,
         })
     }
 
@@ -87,10 +91,7 @@ impl Page {
         };
         url.set_path(&path);
 
-        let bytes = reqwest::get(url)
-            .await?
-            .bytes()
-            .await?;
+        let bytes = reqwest::get(url).await?.bytes().await?;
 
         Ok(bytes)
     }

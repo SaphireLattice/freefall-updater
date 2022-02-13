@@ -4,35 +4,38 @@ extern crate lazy_static;
 mod data;
 mod freefall;
 
+use anyhow::{anyhow, Context, Result};
+use bytes::Bytes;
 use chrono::TimeZone;
 use chrono::Utc;
-use anyhow::{Context, Result, anyhow};
-use serde_json::ser::Formatter;
 use serde::de::DeserializeOwned;
-use std::io::BufWriter;
 use serde::Serialize;
-use std::io::Write;
-use std::path::PathBuf;
-use bytes::Bytes;
-use std::io::BufReader;
-use std::fs::File;
-use std::path::Path;
+use serde_json::ser::Formatter;
 use std::fs;
+use std::fs::File;
+use std::io::BufReader;
+use std::io::BufWriter;
+use std::io::Write;
+use std::path::Path;
+use std::path::PathBuf;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let local_data_file = "freefall/data.json";
 
-    let body = reqwest::get("http://freefall.purrsia.com/fabsdata.js").await
+    let body = reqwest::get("http://freefall.purrsia.com/fabsdata.js")
+        .await
         .context("Failed to fetch upstream data")?
-        .text().await?;
+        .text()
+        .await?;
 
     let data: Vec<data::FreefallEntry> = serde_json::from_str(
-            body
-                .strip_prefix("FreefallData(").ok_or("Prefix match failed")?
-                .strip_suffix(")").ok_or("Suffix match failed")?
-        )
-        .context("Failed to normalize JSONP to JSON")?;
+        body.strip_prefix("FreefallData(")
+            .ok_or("Prefix match failed")?
+            .strip_suffix(")")
+            .ok_or("Suffix match failed")?,
+    )
+    .context("Failed to normalize JSONP to JSON")?;
 
     let mut local_data: Vec<data::ReaderEntry> = read_from_file(local_data_file)
         .with_context(|| format!("Failed to read local reader data from {}", local_data_file))?;
@@ -41,7 +44,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let last_known = local_last.i;
     let last = data.last().unwrap().i;
-    println!("Last update check {:?} UTC", local_last.checked.unwrap_or_else(|| Utc.timestamp(0, 0)));
+    println!(
+        "Last update check {:?} UTC",
+        local_last.checked.unwrap_or_else(|| Utc.timestamp(0, 0))
+    );
 
     if last_known == last {
         println!("Local copy up to date!");
@@ -50,7 +56,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    println!("Local copy out of sync.\nLast known: {}\nLatest: {}", last_known, last);
+    println!(
+        "Local copy out of sync.\nLast known: {}\nLatest: {}",
+        last_known, last
+    );
 
     let mut dates: Vec<Option<String>> = if last_known % 100 != 99 {
         read_from_file(format!("freefall/dates_{}.json", last_known / 100))
@@ -63,11 +72,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let url = if i == last {
             "http://freefall.purrsia.com/default.htm".to_string()
         } else {
-            format!("http://freefall.purrsia.com/ff{:02}00/{}{:05}.htm", (i - 1) / 100 + 1, "fc", i)
+            format!(
+                "http://freefall.purrsia.com/ff{:02}00/{}{:05}.htm",
+                (i - 1) / 100 + 1,
+                "fc",
+                i
+            )
         };
 
         println!("Fetching #{}", i);
-        let page = freefall::Page::new(url).await
+        let page = freefall::Page::new(url)
+            .await
             .context("Failed to fetch the page")?;
         println!("Got page {}", page);
 
@@ -90,7 +105,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             assert_eq!(dates.len(), 100);
             let bin = i / 100;
 
-            save_to_file(format!("static/freefall/dates_{}.json", bin), &dates, serde_json::ser::CompactFormatter)?;
+            save_to_file(
+                format!("static/freefall/dates_{}.json", bin),
+                &dates,
+                serde_json::ser::CompactFormatter,
+            )?;
 
             fs::remove_file(format!("freefall/dates_{}.json", bin))
                 .with_context(|| format!("Failed to remove freefall/dates_{}.json", bin))?;
@@ -103,7 +122,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if last % 100 != 99 {
-        save_to_file(format!("freefall/dates_{}.json", last / 100), &dates, serde_json::ser::CompactFormatter)?;
+        save_to_file(
+            format!("freefall/dates_{}.json", last / 100),
+            &dates,
+            serde_json::ser::CompactFormatter,
+        )?;
     };
 
     local_data.last_mut().unwrap().i = last;
@@ -121,35 +144,46 @@ fn read_from_file<P: AsRef<Path>, T: DeserializeOwned>(path: P) -> Result<Vec<T>
     Ok(data)
 }
 
-fn save_to_file<P: AsRef<Path>, T: Serialize, F: Formatter>(path: P, data: T, formatter: F) -> Result<bool, anyhow::Error> {
-//*
+fn save_to_file<P: AsRef<Path>, T: Serialize, F: Formatter>(
+    path: P,
+    data: T,
+    formatter: F,
+) -> Result<bool, anyhow::Error> {
+    //*
     let file = File::create(&path)?;
     let writer = BufWriter::new(file);
 
     let mut ser = serde_json::Serializer::with_formatter(writer, formatter);
     data.serialize(&mut ser).unwrap();
 
-
     println!("Saved data: {:?}", path.as_ref());
 
     Ok(true)
-// *
-/* /
+    // *
+    /* /
 
-    let buf = Vec::new();
-    let mut ser = serde_json::Serializer::with_formatter(buf, formatter);
-    data.serialize(&mut ser).unwrap();
+        let buf = Vec::new();
+        let mut ser = serde_json::Serializer::with_formatter(buf, formatter);
+        data.serialize(&mut ser).unwrap();
 
-    println!("[{:?}]: {}", path.as_ref(), String::from_utf8(ser.into_inner()).unwrap());
+        println!("[{:?}]: {}", path.as_ref(), String::from_utf8(ser.into_inner()).unwrap());
 
-    Ok(true)
-// */
+        Ok(true)
+    // */
 }
 
-
-pub async fn save_page_img(page: &freefall::Page, bytes: Bytes, target_dir: String) -> Result<PathBuf, anyhow::Error> {
+pub async fn save_page_img(
+    page: &freefall::Page,
+    bytes: Bytes,
+    target_dir: String,
+) -> Result<PathBuf, anyhow::Error> {
     let mut path = PathBuf::from(target_dir);
-    if !page.img_url.ends_with("png") { return Err(anyhow!("Unsupported image type for image \"{}\"", page.img_url)); };
+    if !page.img_url.ends_with("png") {
+        return Err(anyhow!(
+            "Unsupported image type for image \"{}\"",
+            page.img_url
+        ));
+    };
     let filename = format!("{}.{}", page.num, "png");
     path.push(filename);
 
