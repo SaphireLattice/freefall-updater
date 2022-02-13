@@ -8,6 +8,7 @@ use anyhow::{anyhow, Context, Result};
 use bytes::Bytes;
 use chrono::TimeZone;
 use chrono::Utc;
+use once_cell::unsync::Lazy;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::ser::Formatter;
@@ -19,9 +20,13 @@ use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 
+// Used as a horrible hack, as PathBuf hasn't been const-ified
+type LazyPath = Lazy<PathBuf, fn() -> PathBuf>;
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let local_data_file = "freefall/data.json";
+    const DYNAMIC_DIR: LazyPath = Lazy::new(|| "freefall".into());
+    const LOCAL_DATA_FILE: LazyPath = Lazy::new(|| DYNAMIC_DIR.join("data.json"));
 
     let body = reqwest::get("http://freefall.purrsia.com/fabsdata.js")
         .await
@@ -38,7 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     .context("Failed to normalize JSONP to JSON")?;
 
     let mut local_data: Vec<data::ReaderEntry> =
-        read_from_file(&*local_data_file).with_context(|| "Failed to read local data")?;
+        read_from_file(&*LOCAL_DATA_FILE).with_context(|| "Failed to read local data")?;
 
     let local_last = local_data.last().unwrap();
 
@@ -52,7 +57,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if last_known == last {
         println!("Local copy up to date!");
         local_data.last_mut().unwrap().checked = Some(Utc::now());
-        save_to_file(local_data_file, local_data, data::DataFormatter::new())?;
+        save_to_file(&*LOCAL_DATA_FILE, local_data, data::DataFormatter::new())?;
         return Ok(());
     }
 
@@ -62,7 +67,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let mut dates: Vec<Option<String>> = if last_known % 100 != 99 {
-        read_from_file(format!("freefall/dates_{}.json", last_known / 100))?
+        read_from_file(DYNAMIC_DIR.join(format!("dates_{}.json", last_known / 100)))?
     } else {
         Vec::new()
     };
@@ -112,9 +117,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 serde_json::ser::CompactFormatter,
             )?;
 
-            fs::remove_file(format!("freefall/dates_{}.json", bin))
-                .with_context(|| format!("Failed to remove freefall/dates_{}.json", bin))?;
-            println!("Removed old dates: freefall/dates_{}.json", bin);
+            let dates_file = DYNAMIC_DIR.join(format!("dates_{}.json", bin));
+            fs::remove_file(&dates_file)
+                .with_context(|| format!("Failed to remove {:?}", &dates_file))?;
+            println!("Removed old dates: {:?}", &dates_file);
 
             dates = Vec::new();
         }
@@ -124,7 +130,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if last % 100 != 99 {
         save_to_file(
-            format!("freefall/dates_{}.json", last / 100),
+            DYNAMIC_DIR.join(format!("dates_{}.json", last / 100)),
             &dates,
             serde_json::ser::CompactFormatter,
         )?;
@@ -132,7 +138,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     local_data.last_mut().unwrap().i = last;
     local_data.last_mut().unwrap().checked = Some(Utc::now());
-    save_to_file(local_data_file, local_data, data::DataFormatter::new())?;
+    save_to_file(&*LOCAL_DATA_FILE, local_data, data::DataFormatter::new())?;
 
     Ok(())
 }
